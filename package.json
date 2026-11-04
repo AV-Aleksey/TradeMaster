@@ -1,0 +1,93 @@
+{
+  "name": "trademaster",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Desktop signal terminal with independent market-data providers",
+  "main": "./out/main/index.js",
+  "type": "module",
+  "engines": {
+    "node": ">=22.12.0"
+  },
+  "volta": {
+    "node": "22.23.1"
+  },
+  "scripts": {
+    "setup": "node scripts/ensure-electron.mjs && electron-builder install-app-deps",
+    "postinstall": "npm run setup",
+    "predev": "node scripts/ensure-electron.mjs",
+    "dev": "node scripts/launch.mjs dev",
+    "prestart": "node scripts/ensure-electron.mjs",
+    "start": "npm run build && node scripts/launch.mjs preview",
+    "typecheck": "tsc --noEmit",
+    "build": "npm run typecheck && electron-vite build",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:coverage": "vitest run --coverage",
+    "test:desktop": "npm run build && node scripts/desktop-smoke.mjs",
+    "test:editor": "npm run build && node scripts/signal-editor-smoke.mjs",
+    "test:temporal": "npm run build && node scripts/temporal-editor-smoke.mjs",
+    "test:readme": "npm run build && node scripts/readme-presets-smoke.mjs",
+    "test:telegram": "electron-vite build --config scripts/telegram-test.config.ts && node scripts/run-telegram-test.mjs",
+    "package:dir": "npm run build && electron-builder --dir",
+    "package:mac": "npm run build && electron-builder --mac",
+    "package:win": "npm run build && electron-builder --win",
+    "probe:itick": "node --env-file-if-exists=.env.local scripts/itick-probe.mjs"
+  },
+  "build": {
+    "appId": "io.trademaster.desktop",
+    "productName": "TradeMaster",
+    "directories": {
+      "output": "release"
+    },
+    "files": [
+      "out/**/*",
+      "package.json"
+    ],
+    "asarUnpack": [
+      "**/*.node"
+    ],
+    "mac": {
+      "target": [
+        "dmg"
+      ],
+      "category": "public.app-category.finance"
+    },
+    "win": {
+      "target": [
+        "nsis"
+      ]
+    }
+  },
+  "dependencies": {
+    "@ant-design/icons": "^6.3.4",
+    "@react-querybuilder/antd": "^8.26.0",
+    "antd": "^6.7.0",
+    "better-sqlite3": "^13.0.3",
+    "decimal.js": "^10.6.0",
+    "dotenv": "^18.0.9",
+    "grammy": "^1.46.0",
+    "klinecharts": "^10.1.0",
+    "lossless-json": "^4.3.3",
+    "react": "^19.3.1",
+    "react-dom": "^19.3.1",
+    "react-querybuilder": "^8.26.0",
+    "ws": "^8.22.1",
+    "zod": "^4.6.7"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.64.1",
+    "@types/better-sqlite3": "^9.6.0",
+    "@types/node": "^26.6.6",
+    "@types/react": "^19.3.0",
+    "@types/react-dom": "^19.3.0",
+    "@types/ws": "^8.18.2",
+    "@vitejs/plugin-react": "^6.2.1",
+    "@vitest/coverage-v8": "^5.1.0",
+    "electron": "^45.2.2",
+    "electron-builder": "^26.18.0",
+    "electron-vite": "^6.0.0",
+    "typescript": "^7.0.2",
+    "vite": "^8.3.5",
+    "vitest": "^5.1.0"
+  }
+}
