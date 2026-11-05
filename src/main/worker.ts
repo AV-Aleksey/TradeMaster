@@ -2,12 +2,13 @@ import { mkdirSync } from 'node:fs';
 import { join } from 'node:path';
 import { ItickProvider } from '../providers/itick';
 import { ReplayProvider } from '../providers/replay';
+import { FinamProvider } from '../providers/finam';
 import { descriptors, type DataProvider } from '../providers/contracts';
 import { TerminalService } from '../service/terminal';
 import { SqliteStore } from './storage';
 import { commandSchema, isMainCommand, telegramCredentialsSchema, telegramBindingSchema, type AppSnapshot, type TelegramBinding, type TelegramCredentials, type TelegramChat } from '../shared/model';
 import { NotificationDispatcher, TelegramChannel, telegramConnection } from '../service/telegram';
-import { telegramFetch } from './telegram-network';
+import { telegramFetch, desktopFetch } from './telegram-network';
 import { TelegramBotController } from '../service/telegram-bot';
 
 const port = process.parentPort;
@@ -15,7 +16,7 @@ if (!port) throw new Error('Worker must be launched by Electron utilityProcess')
 let terminal: TerminalService | undefined;
 let store: SqliteStore | undefined;
 let dataDirectory = '';
-let token = '';
+let sourceTokens: Record<string, string> = {};
 let telegram: TelegramCredentials | undefined;
 let dispatcher: NotificationDispatcher | undefined;
 let closing = false;
@@ -55,10 +56,13 @@ function initialize(): void {
   mkdirSync(dataDirectory, { recursive: true });
   store = new SqliteStore(join(dataDirectory, 'trademaster.sqlite'));
   const providers = new Map<string, DataProvider>([
-    ['replay', new ReplayProvider()], ['itick', new ItickProvider(token)], ['itick-trial', new ItickProvider(token, true)],
+    ['replay', new ReplayProvider()], ['itick', new ItickProvider(sourceTokens.itick ?? '')], ['itick-trial', new ItickProvider(sourceTokens.itick ?? '', true)],
+    ['finam', new FinamProvider(() => sourceTokens.finam ?? '', desktopFetch)],
   ]);
-  terminal = new TerminalService(store, providers, id => !descriptors.find(d => d.id === id)?.requiresToken || Boolean(token),
-    (state: AppSnapshot) => port!.postMessage({ kind: 'state', state }), token ? 'itick-trial' : 'replay', () => telegramConnection(telegram), () => botStatus,
+  terminal = new TerminalService(store, providers, id => {
+    const descriptor = descriptors.find(provider => provider.id === id);
+    return !descriptor?.requiresToken || Boolean(sourceTokens[descriptor.credentialId ?? id]);
+  }, (state: AppSnapshot) => port!.postMessage({ kind: 'state', state }), sourceTokens.itick ? 'itick-trial' : 'replay', () => telegramConnection(telegram), () => botStatus,
     volume => port!.postMessage({ kind: 'signalSound', volume }));
   terminal.start();
   configureNotifications();
@@ -95,12 +99,18 @@ port.on('message', async event => {
     port.postMessage({ kind: 'result', id: message.id, result: { ok: true } }); return;
   }
   if (message?.kind === 'initialize') {
-    try { dataDirectory = message.directory; token = message.token ?? ''; binding = telegramBindingSchema.safeParse(message.telegramBinding ?? message.telegram).data; telegram = telegramCredentialsSchema.safeParse(binding).data; initialize(); port.postMessage({ kind: 'ready' }); }
+    try { dataDirectory = message.directory; sourceTokens = message.tokens ?? { itick: message.token ?? '' }; binding = telegramBindingSchema.safeParse(message.telegramBinding ?? message.telegram).data; telegram = telegramCredentialsSchema.safeParse(binding).data; initialize(); port.postMessage({ kind: 'ready' }); }
     catch (error) { console.error('Engine initialization:', error instanceof Error ? error.message : 'unknown error'); port.postMessage({ kind: 'fatal', error: 'Не удалось запустить хранилище или движок. Проверьте каталог данных.' }); }
     return;
   }
   if (message?.kind === 'credentials') {
-    try { token = message.token; initialize(); port.postMessage({ kind: 'result', id: message.id, result: { ok: true } }); }
+    try {
+      const source = message.source ?? 'itick'; sourceTokens[source] = message.token;
+      // Storing a key for an unfinished adapter must not restart live monitoring.
+      if (descriptors.some(provider => provider.credentialId === source && provider.available !== false)) initialize();
+      else terminal?.publish();
+      port.postMessage({ kind: 'result', id: message.id, result: { ok: true } });
+    }
     catch { port.postMessage({ kind: 'result', id: message.id, result: { ok: false, error: 'Не удалось обновить подключение' } }); }
     return;
   }

@@ -28,35 +28,17 @@
     "test:temporal": "npm run build && node scripts/temporal-editor-smoke.mjs",
     "test:readme": "npm run build && node scripts/readme-presets-smoke.mjs",
     "test:telegram": "electron-vite build --config scripts/telegram-test.config.ts && node scripts/run-telegram-test.mjs",
-    "package:dir": "npm run build && electron-builder --dir",
-    "package:mac": "npm run build && electron-builder --mac",
-    "package:win": "npm run build && electron-builder --win",
-    "probe:itick": "node --env-file-if-exists=.env.local scripts/itick-probe.mjs"
-  },
-  "build": {
-    "appId": "io.trademaster.desktop",
-    "productName": "TradeMaster",
-    "directories": {
-      "output": "release"
-    },
-    "files": [
-      "out/**/*",
-      "package.json"
-    ],
-    "asarUnpack": [
-      "**/*.node"
-    ],
-    "mac": {
-      "target": [
-        "dmg"
-      ],
-      "category": "public.app-category.finance"
-    },
-    "win": {
-      "target": [
-        "nsis"
-      ]
-    }
+    "package:dir": "npm run build && node scripts/package.mjs dir",
+    "package:mac": "npm run build && node scripts/package.mjs mac",
+    "package:win": "npm run build && node scripts/package.mjs win --x64",
+    "probe:itick": "node --env-file-if-exists=.env.local scripts/itick-probe.mjs",
+    "prepackage:dir": "node scripts/ensure-electron.mjs",
+    "prepackage:mac": "node scripts/ensure-electron.mjs",
+    "package:mac:arm64": "npm run build && node scripts/package.mjs mac --arm64",
+    "package:mac:x64": "npm run build && node scripts/package.mjs mac --x64",
+    "package:mac:signed": "npm run build && node scripts/package.mjs mac --signed",
+    "prepackage:win": "node scripts/ensure-electron.mjs",
+    "package:verify": "node scripts/verify-package.mjs"
   },
   "dependencies": {
     "@ant-design/icons": "^6.3.4",
@@ -89,5 +71,7 @@
     "typescript": "^7.0.2",
     "vite": "^8.3.5",
     "vitest": "^5.1.0"
-  }
+  },
+  "author": "TradeMaster",
+  "license": "UNLICENSED"
 }

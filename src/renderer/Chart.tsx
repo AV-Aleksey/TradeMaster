@@ -28,7 +28,8 @@ const convert = (bars: Candle[]): KLineData[] => bars.map(c => ({ timestamp: c.o
   open: Number(c.open), high: Number(c.high), low: Number(c.low), close: Number(c.close),
   ...(c.volume === null ? {} : { volume: Number(c.volume) }) }));
 
-export function CandleChart({ pair, timeframe, candles, panel }: { pair: Pair; timeframe: Timeframe; candles: Candle[]; panel: 'macd' | 'stoch' | 'none' }): React.JSX.Element {
+export type ChartPanel = 'both' | 'macd' | 'stoch' | 'none';
+export function CandleChart({ pair, timeframe, candles, panel }: { pair: Pair; timeframe: Timeframe; candles: Candle[]; panel: ChartPanel }): React.JSX.Element {
   const element = useRef<HTMLDivElement>(null), chart = useRef<Chart | null>(null);
   const data = useRef<KLineData[]>([]), push = useRef<DataLoaderSubscribeBarParams['callback'] | null>(null);
   const previous = useRef<KLineData[]>([]);
@@ -49,7 +50,8 @@ export function CandleChart({ pair, timeframe, candles, panel }: { pair: Pair; t
       else callback([], false);
     }, subscribeBar: ({ callback }) => { push.current = callback; }, unsubscribeBar: () => { push.current = null; } });
     instance.createIndicator({ name: 'TM_EMA', paneId: 'candle_pane' }, true);
-    if (panel !== 'none') instance.createIndicator(panel === 'macd' ? 'TM_MACD' : 'TM_STOCH');
+    if (panel === 'stoch' || panel === 'both') instance.createIndicator({ name: 'TM_STOCH', paneId: 'stoch_pane' });
+    if (panel === 'macd' || panel === 'both') instance.createIndicator({ name: 'TM_MACD', paneId: 'macd_pane' });
     const observer = new ResizeObserver(() => instance.resize()); observer.observe(element.current);
     return () => { observer.disconnect(); push.current = null; dispose(element.current!); chart.current = null; previous.current = []; };
   }, [pair.id, pair.source, timeframe, panel]);

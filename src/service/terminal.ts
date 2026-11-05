@@ -82,7 +82,10 @@ export class TerminalService {
   snapshot(): AppSnapshot {
     const pair = this.data.pairs.find(p => p.id === this.data.settings.activePairId);
     const status = pair ? this.market.status(pair, this.data.settings.timeframe) : 'Добавьте валютную пару';
-    return { ...structuredClone(this.data), providers: [...this.providers.values()].map(p => ({ id: p.id, name: p.name, configured: this.configured(p.id), live: p.capabilities.calendar !== 'demo-24h' })),
+    return { ...structuredClone(this.data), providers: [...this.providers.values()].map(p => {
+      const available = descriptors.find(provider => provider.id === p.id)?.available !== false;
+      return { id: p.id, name: p.name, configured: this.configured(p.id), available, canPing: available || Boolean(p.ping), live: available && p.capabilities.calendar !== 'demo-24h' };
+    }),
       candles: pair ? this.market.cached(pair, this.data.settings.timeframe) : [], events: this.store.events(this.notificationTarget()), statuses: this.statuses, telegramConfigured: Boolean(this.notificationTarget()), telegramConnectionId: this.notificationTarget(), telegramBotStatus: this.botStatus(),
       feedStatus: status, feedError: this.feedError, marketTime: pair ? this.market.provider(pair.source).now() : Date.now(),
       receivedAt: pair ? this.market.receivedAt(pair, this.data.settings.timeframe) : null,
@@ -92,6 +95,10 @@ export class TerminalService {
   private reset(signalId?: string): void {
     if (signalId) { this.machines.delete(signalId); this.armedSince.delete(signalId); }
     else { this.machines.clear(); this.armedSince.clear(); }
+  }
+  private requireAvailable(source: string): void {
+    const descriptor = descriptors.find(provider => provider.id === source);
+    if (descriptor?.available === false) throw new Error(`${descriptor.name}: адаптер рыночных данных ещё не реализован`);
   }
   async refresh(): Promise<void> {
     if (this.busy || this.disposed) return;
@@ -225,12 +232,14 @@ export class TerminalService {
         }
         case 'switchSource': {
           const pair = findPair(command.pairId); this.market.provider(command.source);
+          this.requireAvailable(command.source);
           if (!this.configured(command.source)) throw new Error('Сначала сохраните ключ источника в настройках');
           pair.source = command.source; this.generation++; this.feedError = null;
           this.data.signals.filter(s => s.pairId === pair.id).forEach(s => this.reset(s.id)); break;
         }
         case 'addPair': {
           this.market.provider(command.source);
+          this.requireAvailable(command.source);
           if (this.data.pairs.some(p => p.code === command.code && p.region === command.region)) throw new Error('Эта пара уже добавлена');
           const pair = { id: randomUUID(), code: command.code, name: command.name, region: command.region, source: command.source };
           this.data.pairs.push(pair); this.data.settings.activePairId = pair.id; this.generation++; break;
@@ -256,12 +265,18 @@ export class TerminalService {
         }
         case 'deleteSignal': this.data.signals = this.data.signals.filter(s => s.id !== command.id); this.reset(command.id); break;
         case 'testSource': {
-          const pairs = await this.market.provider(command.source).search('EURUSD');
+          const provider = this.market.provider(command.source);
+          if (provider.ping) return { ok: true, data: await provider.ping() };
+          this.requireAvailable(command.source);
+          const pairs = await provider.search('EURUSD');
           if (!pairs.length) throw new Error('Источник ответил, но EURUSD не найден');
           const bars = await this.market.provider(command.source).history(pairs[0], '5m', 120);
           return { ok: true, data: { instruments: pairs.length, bars: bars.length, lastTime: bars.at(-1)?.openTime } };
         }
-        case 'searchPairs': return { ok: true, data: await this.market.provider(command.source).search(command.query) };
+        case 'searchPairs': {
+          this.requireAvailable(command.source);
+          return { ok: true, data: await this.market.provider(command.source).search(command.query) };
+        }
       }
       this.store.save(this.data);
       const reasons: Partial<Record<EngineCommand['type'], string>> = { setMonitoring: command.type === 'setMonitoring' && command.enabled ? 'Включён общий мониторинг' : 'Общий мониторинг остановлен',

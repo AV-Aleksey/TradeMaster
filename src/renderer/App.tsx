@@ -7,11 +7,12 @@ import { timeframes, type AppSnapshot, type Command, type DesktopBridge, type Ex
   type Signal, type SignalEvent, type SourceId, type Timeframe } from '../shared/model';
 import { SignalEditor } from './SignalEditor';
 import { ItickSettings } from './ItickSettings';
+import { ProviderSettings } from './ProviderSettings';
 import { TelegramSettings } from './TelegramSettings';
 import { SoundSettings } from './SoundSettings';
 import { playSignalSound } from './signal-sound';
 import { signalIndicators } from '../shared/simple-signals';
-import { CandleChart } from './Chart';
+import { CandleChart, type ChartPanel } from './Chart';
 import { displayNumber, indicatorDecimalPlaces } from '../shared/display-number';
 
 declare global { interface Window { trademaster: DesktopBridge } }
@@ -32,7 +33,7 @@ export function TerminalApp(): React.JSX.Element {
   const [pairForm] = Form.useForm();
   const [found, setFound] = useState<Array<{ code: string; name: string; region: string }>>([]), [searchBusy, setSearchBusy] = useState(false);
   const [details, setDetails] = useState<SignalEvent | null>(null);
-  const [panel, setPanel] = useState<'macd' | 'stoch' | 'none'>('stoch');
+  const [panel, setPanel] = useState<ChartPanel>('both');
   const { message } = App.useApp();
   const invoke = async (command: Command): Promise<unknown> => {
     const result = await window.trademaster.invoke(command);
@@ -65,7 +66,7 @@ export function TerminalApp(): React.JSX.Element {
   const signals = state.signals.filter(s => s.pairId === pair?.id);
   const last = state.candles.at(-1), previous = state.candles.at(-2);
   const delta = last && previous ? (Number(last.close) / Number(previous.close) - 1) * 100 : null;
-  const openAddPair = (): void => { pairForm.resetFields(); pairForm.setFieldsValue({ source: pair?.source ?? state.providers.find(p => p.configured && p.id !== 'replay')?.id ?? 'replay' }); setFound([]); setAddOpen(true); };
+  const openAddPair = (): void => { pairForm.resetFields(); pairForm.setFieldsValue({ source: pair?.source ?? state.providers.find(p => p.configured && p.available !== false && p.id !== 'replay')?.id ?? 'replay' }); setFound([]); setAddOpen(true); };
   const sourceName = (id: SourceId): string => state.providers.find(p => p.id === id)?.name ?? id;
   const events = page === 'История' ? state.events : state.events.filter(e => e.pairId === pair?.id);
   const enabled = state.signals.filter(s => s.enabled).length;
@@ -118,11 +119,11 @@ export function TerminalApp(): React.JSX.Element {
       <Splitter.Panel min={420}>{pair ? <main className="chart-panel"><div className="instrument-header"><div><div className="eyebrow">ВАЛЮТНАЯ ПАРА</div><h1>{pairLabel(pair.code)} <span className="instrument-name">{pair.name}</span></h1></div>
         <div className="price-box"><strong className="mono">{last ? Number(last.close).toFixed(6) : '—'}</strong>{delta !== null && <span className={delta >= 0 ? 'positive' : 'negative'}>{delta >= 0 ? '+' : ''}{delta.toFixed(3)}% <small>за свечу</small></span>}</div></div>
         <div className="chart-toolbar"><div className="source-select"><span className="muted">Источник</span><Select aria-label="Источник данных" value={pair.source} style={{ width: 180 }}
-          options={state.providers.map(p => ({ value: p.id, label: p.name, disabled: !p.configured }))}
+          options={state.providers.map(p => ({ value: p.id, label: p.name, disabled: !p.configured || p.available === false }))}
           onChange={source => run({ type: 'switchSource', pairId: pair.id, source })} /></div>
           <Segmented size="small" value={state.settings.timeframe} options={timeframes.map(value => ({ value, label: value }))} onChange={tf => run({ type: 'setTimeframe', timeframe: tf as Timeframe })} />
-          <Select size="small" value={panel} style={{ width: 135 }} onChange={setPanel} options={[
-            { value: 'macd', label: 'MACD' }, { value: 'stoch', label: 'Стохастик' }, { value: 'none', label: 'Только свечи' }]} /></div>
+          <Select aria-label="Индикаторы графика" size="small" value={panel} style={{ width: 180 }} onChange={setPanel} options={[
+            { value: 'both', label: 'Стохастик + MACD' }, { value: 'macd', label: 'MACD' }, { value: 'stoch', label: 'Стохастик' }, { value: 'none', label: 'Только свечи' }]} /></div>
         {pair.source === 'replay' && <div className="demo-banner"><ExperimentOutlined /> Тестовые данные · время ускорено ×60 · не рыночные котировки</div>}
         {state.feedError && <Alert type="error" showIcon title={state.feedError} action={<Button size="small" onClick={() => setSettingsOpen(true)}>Подключения</Button>} />}
         <div className="chart-area"><CandleChart pair={pair} timeframe={state.settings.timeframe} candles={state.candles} panel={panel} />
@@ -157,7 +158,7 @@ export function TerminalApp(): React.JSX.Element {
     <Modal open={settingsOpen} destroyOnHidden onCancel={() => setSettingsOpen(false)} title={<Space><SettingOutlined /> Настройки</Space>} footer={<Button onClick={() => setSettingsOpen(false)}>Закрыть</Button>} width={680} styles={{ body: { maxHeight: '75vh', overflowY: 'auto', paddingRight: 8 } }}>
       <div className="settings-sections">
       <ItickSettings configured={Boolean(state.providers.find(p => p.id === 'itick')?.configured)} invoke={invoke} />
-      <div className="settings-section"><h3>Finam</h3><Tag>Недоступен</Tag></div>
+      <ProviderSettings providerId="finam" name="Finam" tokenLabel="API-токен" configured={Boolean(state.providers.find(p => p.id === 'finam')?.configured)} available={state.providers.find(p => p.id === 'finam')?.available ?? false} canPing={state.providers.find(p => p.id === 'finam')?.canPing ?? false} invoke={invoke} />
       <TelegramSettings configured={Boolean(state.telegramConfigured)} enabled={Boolean(state.settings.telegramEnabled)} botStatus={state.telegramBotStatus} bindingKey={state.telegramConnectionId} events={state.events} invoke={invoke} />
       <SoundSettings enabled={state.settings.soundEnabled ?? true} volume={state.settings.soundVolume ?? 60} invoke={invoke} />
       </div>
@@ -165,7 +166,7 @@ export function TerminalApp(): React.JSX.Element {
     <Modal open={addOpen} title="Добавить валютную пару" onCancel={() => setAddOpen(false)} okText="Добавить пару" onOk={() => {
       void pairForm.validateFields().then(values => invoke({ type: 'addPair', ...values, code: values.code.toUpperCase().replace('/', ''), region: 'GB' })).then(() => setAddOpen(false)).catch(e => message.error(e.message));
     }}><Form form={pairForm} layout="vertical" initialValues={{ source: pair?.source ?? 'replay', code: '', name: '' }}>
-      <Form.Item name="source" label="Источник"><Select options={state.providers.map(p => ({ value: p.id, label: p.name, disabled: !p.configured }))} /></Form.Item>
+      <Form.Item name="source" label="Источник"><Select options={state.providers.map(p => ({ value: p.id, label: p.name, disabled: !p.configured || p.available === false }))} /></Form.Item>
       <Form.Item name="code" label="Код пары" rules={[{ required: true }]}><Input placeholder="EURUSD" maxLength={32} /></Form.Item>
       <Button icon={<SearchOutlined />} loading={searchBusy} onClick={() => { setSearchBusy(true); void invoke({ type: 'searchPairs', source: pairForm.getFieldValue('source'), query: pairForm.getFieldValue('code') ?? '' })
         .then(data => setFound(data as typeof found)).catch(e => message.error(e.message)).finally(() => setSearchBusy(false)); }}>Найти в каталоге</Button>

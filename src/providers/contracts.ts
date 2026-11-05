@@ -1,4 +1,4 @@
-import type { Candle, SourceId, Timeframe } from '../shared/model';
+import type { Candle, SourceId, Timeframe, SourceTestResult } from '../shared/model';
 
 export interface Instrument { code: string; name: string; region: string }
 export interface ProviderCapabilities {
@@ -10,16 +10,18 @@ export interface DataProvider {
   id: SourceId; name: string; capabilities: ProviderCapabilities;
   history(instrument: Instrument, timeframe: Timeframe, limit: number): Promise<Candle[]>;
   search(query: string): Promise<Instrument[]>;
+  ping?(): Promise<SourceTestResult>;
   subscribe?(instrument: Instrument, timeframe: Timeframe, onBar: (update: BarUpdate) => void,
     onStatus: (status: string) => void): () => void;
   now(): number;
   close(): void;
 }
-export interface ProviderDescriptor { id: SourceId; name: string; requiresToken: boolean }
+export interface ProviderDescriptor { id: SourceId; name: string; requiresToken: boolean; credentialId?: string; available?: boolean }
 export const descriptors: ProviderDescriptor[] = [
   { id: 'replay', name: 'Тестовые данные · Replay', requiresToken: false },
-  { id: 'itick', name: 'iTick · Production', requiresToken: true },
-  { id: 'itick-trial', name: 'iTick · Trial', requiresToken: true },
+  { id: 'itick', name: 'iTick · Production', requiresToken: true, credentialId: 'itick' },
+  { id: 'itick-trial', name: 'iTick · Trial', requiresToken: true, credentialId: 'itick' },
+  { id: 'finam', name: 'Finam', requiresToken: true, credentialId: 'finam', available: false },
 ];
 export type ProviderErrorKind = 'unauthorized' | 'forbidden' | 'rateLimited' | 'unavailable' | 'invalidData' | 'unsupported';
 export class ProviderError extends Error {

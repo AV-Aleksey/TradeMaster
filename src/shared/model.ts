@@ -66,7 +66,8 @@ export interface SignalEvent {
   delivery?: { state: 'pending' | 'sent' | 'failed' | 'paused'; attempts: number; error?: string; sentAt?: number };
 }
 export interface SignalStatus { signalId: string; state: string; explanation?: Explanation; checkedAt?: number }
-export interface ProviderInfo { id: SourceId; name: string; configured: boolean; live: boolean }
+export interface ProviderInfo { id: SourceId; name: string; configured: boolean; live: boolean; available?: boolean; canPing?: boolean }
+export interface SourceTestResult { bars?: number; instruments?: number; lastTime?: number; authenticated?: boolean; expiresAt?: string; accounts?: number }
 export interface AppSettings { monitoring: boolean; activePairId: string; timeframe: Timeframe; telegramEnabled?: boolean; soundEnabled?: boolean; soundVolume?: number }
 export interface SavedData { pairs: Pair[]; signals: Signal[]; settings: AppSettings }
 export interface AppSnapshot extends SavedData {

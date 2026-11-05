@@ -1,0 +1,35 @@
+const signedRelease = process.env.TRADEMASTER_SIGNED_RELEASE === '1';
+
+module.exports = {
+  appId: 'io.trademaster.desktop',
+  productName: 'TradeMaster',
+  artifactName: '${productName}-${version}-${os}-${arch}.${ext}',
+  directories: { output: 'release', buildResources: 'build' },
+  asar: true,
+  files: ['out/**/*', 'package.json'],
+  extraResources: [{ from: 'build/icon.png', to: 'icon.png' }],
+  asarUnpack: ['**/*.node'],
+  npmRebuild: true,
+  forceCodeSigning: signedRelease,
+  mac: {
+    target: ['dmg', 'zip'],
+    category: 'public.app-category.finance',
+    icon: 'build/icon.png',
+    identity: signedRelease ? undefined : '-',
+    hardenedRuntime: signedRelease,
+    notarize: signedRelease,
+    entitlements: 'build/entitlements.mac.plist',
+    entitlementsInherit: 'build/entitlements.mac.plist',
+  },
+  dmg: { title: 'TradeMaster ${version}', writeUpdateInfo: false },
+  win: { target: ['nsis'], icon: 'build/icon.png' },
+  nsis: {
+    artifactName: '${productName}-${version}-setup-${arch}.${ext}',
+    oneClick: false,
+    perMachine: false,
+    allowToChangeInstallationDirectory: true,
+    createDesktopShortcut: true,
+    createStartMenuShortcut: true,
+    deleteAppDataOnUninstall: false,
+  },
+};
