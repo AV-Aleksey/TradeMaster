@@ -5,10 +5,12 @@ import { intervalMs, checkSignalLimits, type AppSnapshot, type Command, type Com
 import { descriptors, type DataProvider } from '../providers/contracts';
 import { MarketDataService } from './market-data';
 import { simpleCrossSignals } from '../shared/simple-signals';
+import { createConfiguration, prepareConfigurationImport, type ImportMode } from '../shared/configuration';
 
 export interface Store {
   load(): SavedData | null;
   save(data: SavedData): void;
+  saveImported?(data: SavedData, notificationTarget?: string): void;
   addEvent(event: SignalEvent, notificationConnection?: string): boolean;
   events(connection?: string): SignalEvent[];
   retryNotification?(id: string, connection: string): boolean;
@@ -53,6 +55,21 @@ export class TerminalService {
     this.disposed = true; this.generation++; if (this.timer) clearInterval(this.timer); this.market.close();
   }
   publish(): void { this.broadcast(); }
+  importConfiguration(input: unknown, mode: ImportMode): CommandResult {
+    try {
+      if (this.disposed) throw new Error('Движок остановлен');
+      const next = prepareConfigurationImport(this.data, input, mode, randomUUID);
+      for (const pair of next.pairs) this.market.provider(pair.source);
+      // Persist the complete configuration before publishing it or touching live runtime state.
+      const target = this.notificationTarget();
+      if (this.store.saveImported) this.store.saveImported(next, target);
+      else { this.store.save(next); if (target) this.store.setNotificationsEnabled?.(target, false); }
+      this.data = next; this.generation++; this.reset(); this.feedError = null; this.statuses = [];
+      this.market.prune(new Set());
+      this.broadcast(); void this.refresh();
+      return { ok: true, data: { pairs: next.pairs.length, signals: next.signals.length } };
+    } catch (error) { return { ok: false, error: error instanceof Error ? error.message : 'Не удалось импортировать конфигурацию' }; }
+  }
   resume(): void {
     if (this.disposed) return;
     this.generation++;
@@ -200,6 +217,7 @@ export class TerminalService {
       const findPair = (id: string) => { const p = this.data.pairs.find(pair => pair.id === id); if (!p) throw new Error('Пара не найдена'); return p; };
       switch (command.type) {
         case 'snapshot': return { ok: true, data: this.snapshot() };
+        case 'exportConfiguration': return { ok: true, data: createConfiguration(this.data, command.scope, command.signalIds) };
         case 'selectPair': findPair(command.pairId); this.data.settings.activePairId = command.pairId; this.generation++; break;
         case 'setTimeframe': this.data.settings.timeframe = command.timeframe; this.generation++; break;
         case 'setMonitoring':
@@ -234,12 +252,20 @@ export class TerminalService {
           const pair = findPair(command.pairId); this.market.provider(command.source);
           this.requireAvailable(command.source);
           if (!this.configured(command.source)) throw new Error('Сначала сохраните ключ источника в настройках');
+          if (pair.source !== command.source && (pair.source === 'finam' || command.source === 'finam')) throw new Error('Добавьте инструмент из каталога выбранного источника: Finam использует собственные тикеры и площадки');
           pair.source = command.source; this.generation++; this.feedError = null;
           this.data.signals.filter(s => s.pairId === pair.id).forEach(s => this.reset(s.id)); break;
         }
         case 'addPair': {
           this.market.provider(command.source);
           this.requireAvailable(command.source);
+          if (command.source !== 'finam' && (command.region !== 'GB' || !/^[A-Z0-9._-]{2,32}$/.test(command.code))) throw new Error('Для этого источника нужен Forex-код и регион GB');
+          if (command.source === 'finam') {
+            if (!this.configured(command.source)) throw new Error('Сначала сохраните ключ Finam в настройках');
+            const matches = await this.market.provider(command.source).search(`${command.code}@${command.region}`);
+            if (this.disposed) throw new Error('Подключение закрыто');
+            if (!matches.some(item => item.code === command.code && item.region === command.region)) throw new Error('Finam: инструмент не подтверждён каталогом');
+          }
           if (this.data.pairs.some(p => p.code === command.code && p.region === command.region)) throw new Error('Эта пара уже добавлена');
           const pair = { id: randomUUID(), code: command.code, name: command.name, region: command.region, source: command.source };
           this.data.pairs.push(pair); this.data.settings.activePairId = pair.id; this.generation++; break;

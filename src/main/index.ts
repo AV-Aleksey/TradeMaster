@@ -1,4 +1,4 @@
-import { app, BrowserWindow, ipcMain, safeStorage, utilityProcess, shell, powerSaveBlocker, powerMonitor, nativeImage } from 'electron';
+import { app, BrowserWindow, dialog, ipcMain, safeStorage, utilityProcess, shell, powerSaveBlocker, powerMonitor, nativeImage } from 'electron';
 import { readFileSync, existsSync, mkdirSync, writeFileSync, renameSync, unlinkSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -7,6 +7,7 @@ import { TelegramBindingClient } from '../service/telegram-binding';
 import { telegramFetch } from './telegram-network';
 import { randomBytes } from 'node:crypto';
 import { descriptors } from '../providers/contracts';
+import { ConfigurationFiles } from '../service/configuration-files';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const dataDirectory = process.env.TRADEMASTER_DATA_DIR || (app.isPackaged ? app.getPath('userData') : resolve('.local/app-data'));
@@ -80,6 +81,19 @@ function send(payload: object): Promise<CommandResult> {
     worker!.postMessage({ ...payload, id });
   });
 }
+const configurationFiles = new ConfigurationFiles({
+  save: async defaultPath => {
+    if (!window) return;
+    const result = await dialog.showSaveDialog(window, { title: 'Экспорт TradeMaster', defaultPath, filters: [{ name: 'TradeMaster JSON', extensions: ['json'] }] });
+    return result.canceled ? undefined : result.filePath;
+  },
+  open: async () => {
+    if (!window) return;
+    const result = await dialog.showOpenDialog(window, { title: 'Импорт TradeMaster', properties: ['openFile'], filters: [{ name: 'TradeMaster JSON', extensions: ['json'] }] });
+    return result.canceled ? undefined : result.filePaths[0];
+  },
+}, (scope, signalIds) => send({ kind: 'command', command: { type: 'exportConfiguration', scope, signalIds } }),
+  (configuration, mode) => send({ kind: 'importConfiguration', configuration, mode }));
 async function createWindow(): Promise<void> {
   const icon = nativeImage.createFromPath(app.isPackaged ? join(process.resourcesPath, 'icon.png') : join(app.getAppPath(), 'build/icon.png'));
   if (process.platform === 'darwin' && !icon.isEmpty()) app.dock?.setIcon(icon);
@@ -140,6 +154,12 @@ void app.whenReady().then(async () => {
     const parsed = commandSchema.safeParse(input);
     if (!parsed.success) return { ok: false, error: 'Проверьте введённые параметры' };
     const execute = async (): Promise<CommandResult> => {
+      try {
+        if (parsed.data.type === 'exportConfigurationFile') return await configurationFiles.export(parsed.data.scope, parsed.data.signalIds);
+        if (parsed.data.type === 'previewConfigurationFile') return await configurationFiles.preview();
+        if (parsed.data.type === 'applyConfigurationFile') return await configurationFiles.apply(parsed.data.importId, parsed.data.mode);
+        if (parsed.data.type === 'cancelConfigurationFile') return configurationFiles.cancel(parsed.data.importId);
+      } catch (error) { return { ok: false, error: error instanceof Error ? error.message : 'Не удалось обработать файл конфигурации' }; }
       if (parsed.data.type === 'getTelegramSettings') {
         const config = await readTelegramBinding(); return { ok: true, data: { configured: Boolean(config?.chatId), tokenStored: Boolean(config), chatId: config?.chatId ?? '', botUsername: config?.botUsername ?? '', chatLabel: config?.chatLabel ?? '' } };
       }

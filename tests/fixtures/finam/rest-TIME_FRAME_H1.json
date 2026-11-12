@@ -1,0 +1,62 @@
+{
+  "symbol": "SBER@MISX",
+  "bars": [
+    {
+      "timestamp": "2026-11-05T12:00:00Z",
+      "open": {
+        "value": "291.85"
+      },
+      "high": {
+        "value": "292.4"
+      },
+      "low": {
+        "value": "291.84"
+      },
+      "close": {
+        "value": "292.35"
+      },
+      "volume": {
+        "value": "1044902.0"
+      },
+      "is_data_snapshot": false
+    },
+    {
+      "timestamp": "2026-11-05T13:00:00Z",
+      "open": {
+        "value": "292.35"
+      },
+      "high": {
+        "value": "293.68"
+      },
+      "low": {
+        "value": "292.34"
+      },
+      "close": {
+        "value": "293.48"
+      },
+      "volume": {
+        "value": "1775328.0"
+      },
+      "is_data_snapshot": false
+    },
+    {
+      "timestamp": "2026-11-05T14:00:00Z",
+      "open": {
+        "value": "293.49"
+      },
+      "high": {
+        "value": "294.71"
+      },
+      "low": {
+        "value": "293.36"
+      },
+      "close": {
+        "value": "294.35"
+      },
+      "volume": {
+        "value": "2154286.0"
+      },
+      "is_data_snapshot": false
+    }
+  ]
+}

@@ -133,12 +133,17 @@ export const signalSchema = z.object({
 });
 export const commandSchema = z.discriminatedUnion('type', [
   z.object({ type: z.literal('snapshot') }),
+  z.object({ type: z.literal('exportConfiguration'), scope: z.enum(['all', 'signals', 'settings']), signalIds: z.array(z.string().min(1).max(80)).min(1).max(1000).optional() }),
+  z.object({ type: z.literal('exportConfigurationFile'), scope: z.enum(['all', 'signals', 'settings']), signalIds: z.array(z.string().min(1).max(80)).min(1).max(1000).optional() }),
+  z.object({ type: z.literal('previewConfigurationFile') }),
+  z.object({ type: z.literal('applyConfigurationFile'), importId: z.string().uuid(), mode: z.enum(['merge', 'replace']) }),
+  z.object({ type: z.literal('cancelConfigurationFile'), importId: z.string().uuid() }),
   z.object({ type: z.literal('selectPair'), pairId: z.string().max(80) }),
   z.object({ type: z.literal('setTimeframe'), timeframe: z.enum(timeframes) }),
   z.object({ type: z.literal('setMonitoring'), enabled: z.boolean() }),
   z.object({ type: z.literal('setSoundSettings'), enabled: z.boolean(), volume: z.number().int().min(0).max(100) }),
   z.object({ type: z.literal('switchSource'), pairId: z.string().max(80), source: sourceSchema }),
-  z.object({ type: z.literal('addPair'), code: z.string().trim().regex(/^[A-Z0-9._-]{2,32}$/), name: z.string().trim().min(1).max(100), region: z.literal('GB'), source: sourceSchema }),
+  z.object({ type: z.literal('addPair'), code: z.string().trim().regex(/^[^\s@\x00-\x1f]{1,64}$/), name: z.string().trim().min(1).max(100), region: z.string().regex(/^[A-Za-z0-9_#-]{1,16}$/), source: sourceSchema }),
   z.object({ type: z.literal('deletePair'), pairId: z.string().min(1).max(80) }),
   z.object({ type: z.literal('saveSignal'), signal: signalSchema }),
   z.object({ type: z.literal('toggleSignal'), id: z.string().max(80), enabled: z.boolean() }),
@@ -160,9 +165,9 @@ export const commandSchema = z.discriminatedUnion('type', [
   z.object({ type: z.literal('searchPairs'), source: sourceSchema, query: z.string().trim().max(32) }),
 ]);
 export type Command = z.infer<typeof commandSchema>;
-export type EngineCommand = Exclude<Command, { type: 'setSourceToken' | 'getSourceToken' | 'getTelegramSettings' | 'getTelegramToken' | 'setTelegramSettings' | 'saveTelegramBot' | 'findTelegramChats' | 'bindTelegramChat' | 'openTelegramBot' | 'disconnectTelegram' }>;
+export type EngineCommand = Exclude<Command, { type: 'exportConfigurationFile' | 'previewConfigurationFile' | 'applyConfigurationFile' | 'cancelConfigurationFile' | 'setSourceToken' | 'getSourceToken' | 'getTelegramSettings' | 'getTelegramToken' | 'setTelegramSettings' | 'saveTelegramBot' | 'findTelegramChats' | 'bindTelegramChat' | 'openTelegramBot' | 'disconnectTelegram' }>;
 export function isMainCommand(command: Command): command is Exclude<Command, EngineCommand> {
-  return ['setSourceToken', 'getSourceToken', 'getTelegramSettings', 'getTelegramToken', 'setTelegramSettings', 'saveTelegramBot', 'findTelegramChats', 'bindTelegramChat', 'openTelegramBot', 'disconnectTelegram'].includes(command.type);
+  return ['exportConfigurationFile', 'previewConfigurationFile', 'applyConfigurationFile', 'cancelConfigurationFile', 'setSourceToken', 'getSourceToken', 'getTelegramSettings', 'getTelegramToken', 'setTelegramSettings', 'saveTelegramBot', 'findTelegramChats', 'bindTelegramChat', 'openTelegramBot', 'disconnectTelegram'].includes(command.type);
 }
 export type CommandResult = { ok: true; data?: unknown } | { ok: false; error: string };
 export interface DesktopBridge {

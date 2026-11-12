@@ -1,6 +1,6 @@
 {
   "name": "trademaster",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "private": true,
   "description": "Desktop signal terminal with independent market-data providers",
   "main": "./out/main/index.js",
@@ -38,7 +38,9 @@
     "package:mac:x64": "npm run build && node scripts/package.mjs mac --x64",
     "package:mac:signed": "npm run build && node scripts/package.mjs mac --signed",
     "prepackage:win": "node scripts/ensure-electron.mjs",
-    "package:verify": "node scripts/verify-package.mjs"
+    "package:verify": "node scripts/verify-package.mjs",
+    "probe:finam": "electron-vite build --config scripts/finam-probe.config.ts && node --env-file-if-exists=.env.local scripts/run-finam-probe.mjs",
+    "test:configuration": "npm run build && node scripts/configuration-smoke.mjs"
   },
   "dependencies": {
     "@ant-design/icons": "^6.3.4",

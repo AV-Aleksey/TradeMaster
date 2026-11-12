@@ -28,7 +28,8 @@ export function normalizeEditorCrossings(group: EditorGroup): EditorGroup {
     if ('rules' in node) return normalizeEditorCrossings(node);
     const left = tryOperand(node.field) ?? simpleOperand();
     if (node.valueSource !== 'field') return node;
-    let right = tryOperand(node.value) ?? crossPartner(left);
+    let right = tryOperand(node.value);
+    if (!right) return node;
     if (isCrossing(node.operator)) right = { ...right, timeframe: left.timeframe };
     return { ...node, value: encodeOperand(right) };
   }) };

@@ -21,7 +21,7 @@ export const descriptors: ProviderDescriptor[] = [
   { id: 'replay', name: 'Тестовые данные · Replay', requiresToken: false },
   { id: 'itick', name: 'iTick · Production', requiresToken: true, credentialId: 'itick' },
   { id: 'itick-trial', name: 'iTick · Trial', requiresToken: true, credentialId: 'itick' },
-  { id: 'finam', name: 'Finam', requiresToken: true, credentialId: 'finam', available: false },
+  { id: 'finam', name: 'Finam', requiresToken: true, credentialId: 'finam' },
 ];
 export type ProviderErrorKind = 'unauthorized' | 'forbidden' | 'rateLimited' | 'unavailable' | 'invalidData' | 'unsupported';
 export class ProviderError extends Error {

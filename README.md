@@ -2,9 +2,9 @@
 
 Проект desktop-терминала для Finam с расширяемыми источниками данных, конструктором сигналов И / ИЛИ, условиями на разных таймфреймах и уведомлениями в Telegram.
 
-Запланированные источники данных: **Finam и iTick**, каждый через собственный адаптер REST/WebSocket.
+Источники данных: **Finam и iTick**, каждый через собственный адаптер REST/WebSocket.
 
-Рабочая версия: Node.js 22.12+, `npm install`, затем `npm start`. Для разработки — `npm run dev`; проверки — `npm test`, `npm run test:desktop`, `npm run test:editor`, `npm run test:temporal`. Ключ iTick вводится в настройках приложения. Без ключа доступен Replay с явно обозначенными тестовыми данными. Telegram привязывается в настройках через бота; Finam пока не подключён.
+Рабочая версия: Node.js 22.12+, `npm install`, затем `npm start`. Для разработки — `npm run dev`; проверки — `npm test`, `npm run test:desktop`, `npm run test:editor`, `npm run test:temporal`. Ключи iTick и Finam вводятся в настройках приложения. Без ключа доступен Replay с явно обозначенными тестовыми данными. Telegram привязывается в настройках через бота; Finam подключён через REST/WebSocket; подробности и ограничения — в [FINAM_REST.md](docs/FINAM_REST.md).
 
 Сборка установщика: `npm run package:mac` на macOS или `npm run package:win` на Windows. Проверка готового приложения — `npm run package:verify`. Подпись, нотариализация и установка: [инструкция по сборке](docs/BUILD.md).
 
@@ -68,6 +68,8 @@ MACD ──────┘
 ---
 
   
+
+Экспорт и импорт доступны в **Настройки → Экспорт и импорт**; отдельный сигнал экспортируется из его карточки. [Состав файлов и режимы импорта](docs/CONFIGURATION_TRANSFER.md).
 
 ## Общие понятия
 

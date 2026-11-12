@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { Alert, App, Badge, Button, Descriptions, Empty, Form, Input, Modal, Popconfirm, Segmented,
   Select, Space, Spin, Splitter, Switch, Table, Tag, Tooltip, Typography } from 'antd';
 import { PlusOutlined, SettingOutlined, CopyOutlined, EditOutlined, DeleteOutlined, ExperimentOutlined,
-  LineChartOutlined, ArrowUpOutlined, SearchOutlined, ThunderboltOutlined, ApiOutlined, SwapOutlined } from '@ant-design/icons';
+  LineChartOutlined, ArrowUpOutlined, SearchOutlined, ThunderboltOutlined, ApiOutlined, SwapOutlined, DownloadOutlined } from '@ant-design/icons';
 import { timeframes, type AppSnapshot, type Command, type DesktopBridge, type Explanation, type Pair,
   type Signal, type SignalEvent, type SourceId, type Timeframe } from '../shared/model';
 import { SignalEditor } from './SignalEditor';
@@ -10,6 +10,7 @@ import { ItickSettings } from './ItickSettings';
 import { ProviderSettings } from './ProviderSettings';
 import { TelegramSettings } from './TelegramSettings';
 import { SoundSettings } from './SoundSettings';
+import { ConfigurationSettings } from './ConfigurationSettings';
 import { playSignalSound } from './signal-sound';
 import { signalIndicators } from '../shared/simple-signals';
 import { CandleChart, type ChartPanel } from './Chart';
@@ -143,6 +144,9 @@ export function TerminalApp(): React.JSX.Element {
             {(() => { const latest = state.events.find(event => event.signalId === signal.id && (!event.kind || event.kind === 'signal'));
               return latest ? <div className="positive small">Последнее срабатывание: {date(latest.createdAt)}</div> : null; })()}
             <div className="signal-actions"><Tooltip title="Изменить"><Button aria-label={`Изменить ${signal.name}`} size="small" type="text" icon={<EditOutlined />} onClick={() => setEditor({ signal })} /></Tooltip>
+              <Tooltip title="Экспортировать сигнал"><Button aria-label={`Экспортировать ${signal.name}`} size="small" type="text" icon={<DownloadOutlined />} onClick={() => {
+                void invoke({ type: 'exportConfigurationFile', scope: 'signals', signalIds: [signal.id] }).then(result => { if (!(result as { canceled?: boolean })?.canceled) message.success('Сигнал экспортирован'); }).catch(error => message.error(error.message));
+              }} /></Tooltip>
               <Tooltip title="Создать вариант"><Button aria-label={`Создать вариант ${signal.name}`} size="small" type="text" icon={<CopyOutlined />} onClick={() => setEditor({ signal: { ...signal, id: crypto.randomUUID(), name: signal.name + ' · вариант', enabled: false, revision: 1 } })} /></Tooltip>
               <Popconfirm title="Удалить сигнал?" onConfirm={() => run({ type: 'deleteSignal', id: signal.id })}><Button aria-label={`Удалить ${signal.name}`} size="small" type="text" danger icon={<DeleteOutlined />} /></Popconfirm></div></article>;
         }) : <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="Добавьте условия первого сигнала" />}</div>
@@ -157,6 +161,7 @@ export function TerminalApp(): React.JSX.Element {
 
     <Modal open={settingsOpen} destroyOnHidden onCancel={() => setSettingsOpen(false)} title={<Space><SettingOutlined /> Настройки</Space>} footer={<Button onClick={() => setSettingsOpen(false)}>Закрыть</Button>} width={680} styles={{ body: { maxHeight: '75vh', overflowY: 'auto', paddingRight: 8 } }}>
       <div className="settings-sections">
+      <ConfigurationSettings invoke={invoke} />
       <ItickSettings configured={Boolean(state.providers.find(p => p.id === 'itick')?.configured)} invoke={invoke} />
       <ProviderSettings providerId="finam" name="Finam" tokenLabel="API-токен" configured={Boolean(state.providers.find(p => p.id === 'finam')?.configured)} available={state.providers.find(p => p.id === 'finam')?.available ?? false} canPing={state.providers.find(p => p.id === 'finam')?.canPing ?? false} invoke={invoke} />
       <TelegramSettings configured={Boolean(state.telegramConfigured)} enabled={Boolean(state.settings.telegramEnabled)} botStatus={state.telegramBotStatus} bindingKey={state.telegramConnectionId} events={state.events} invoke={invoke} />
@@ -164,16 +169,17 @@ export function TerminalApp(): React.JSX.Element {
       </div>
     </Modal>
     <Modal open={addOpen} title="Добавить валютную пару" onCancel={() => setAddOpen(false)} okText="Добавить пару" onOk={() => {
-      void pairForm.validateFields().then(values => invoke({ type: 'addPair', ...values, code: values.code.toUpperCase().replace('/', ''), region: 'GB' })).then(() => setAddOpen(false)).catch(e => message.error(e.message));
-    }}><Form form={pairForm} layout="vertical" initialValues={{ source: pair?.source ?? 'replay', code: '', name: '' }}>
+      void pairForm.validateFields().then(values => invoke({ type: 'addPair', ...values, code: values.source === 'finam' ? values.code.trim() : values.code.toUpperCase().replace('/', ''), region: values.source === 'finam' ? values.region : 'GB' })).then(() => setAddOpen(false)).catch(e => message.error(e.message));
+    }}><Form form={pairForm} layout="vertical" initialValues={{ source: pair?.source ?? 'replay', code: '', name: '', region: 'GB' }} onValuesChange={changed => { if (changed.source) { setFound([]); pairForm.setFieldsValue({ code: '', name: '', region: changed.source === 'finam' ? '' : 'GB' }); } }}>
       <Form.Item name="source" label="Источник"><Select options={state.providers.map(p => ({ value: p.id, label: p.name, disabled: !p.configured || p.available === false }))} /></Form.Item>
-      <Form.Item name="code" label="Код пары" rules={[{ required: true }]}><Input placeholder="EURUSD" maxLength={32} /></Form.Item>
-      <Button icon={<SearchOutlined />} loading={searchBusy} onClick={() => { setSearchBusy(true); void invoke({ type: 'searchPairs', source: pairForm.getFieldValue('source'), query: pairForm.getFieldValue('code') ?? '' })
-        .then(data => setFound(data as typeof found)).catch(e => message.error(e.message)).finally(() => setSearchBusy(false)); }}>Найти в каталоге</Button>
+      <Form.Item name="code" label="Код пары" rules={[{ required: true }]}><Input placeholder="EURUSD" maxLength={64} /></Form.Item>
+      <Form.Item noStyle shouldUpdate={(before, after) => before.source !== after.source}>{({ getFieldValue }) => getFieldValue('source') === 'finam' && <Form.Item name="region" label="Площадка (MIC)" rules={[{ required: true, message: 'Выберите инструмент в каталоге или укажите MIC' }]}><Input placeholder="Например, MISX" maxLength={16} /></Form.Item>}</Form.Item>
+      <Button icon={<SearchOutlined />} loading={searchBusy} onClick={() => { const source = pairForm.getFieldValue('source'), query = pairForm.getFieldValue('code') ?? ''; setSearchBusy(true); void invoke({ type: 'searchPairs', source, query })
+        .then(data => { if (pairForm.getFieldValue('source') === source && pairForm.getFieldValue('code') === query) setFound(data as typeof found); }).catch(e => message.error(e.message)).finally(() => setSearchBusy(false)); }}>Найти в каталоге</Button>
       {found.length > 0 && <div className="catalog-results" role="group" aria-label="Результаты поиска валютных пар">
-        {found.map(item => <Button key={item.code} block type="text" className="catalog-result" icon={<SwapOutlined />}
-          onClick={() => pairForm.setFieldsValue({ code: item.code, name: item.name })}>
-          <span className="catalog-result-code">{pairLabel(item.code)}</span><span className="catalog-result-name">{item.name}</span>
+        {found.map(item => <Button key={`${item.code}@${item.region}`} block type="text" className="catalog-result" icon={<SwapOutlined />}
+          onClick={() => pairForm.setFieldsValue({ code: item.code, name: item.name, region: item.region })}>
+          <span className="catalog-result-code">{pairLabel(item.code)} · {item.region}</span><span className="catalog-result-name">{item.name}</span>
         </Button>)}
       </div>}
       <Form.Item name="name" label="Название" rules={[{ required: true }]} style={{ marginTop: 16 }}><Input placeholder="Евро / доллар" maxLength={100} /></Form.Item>

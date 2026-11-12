@@ -208,3 +208,65 @@ describe('terminal lifecycle and complete signal processing', () => {
     terminal.close();
   });
 });
+
+describe('Finam instrument identity at terminal boundary', () => {
+  function setupFinam() {
+    const replay = new ManualProvider(), store = new MemoryStore();
+    const search = vi.fn(async () => [{ code: 'EUR/USD', region: '_NPRO', name: 'EUR/USD' }]);
+    const finam: DataProvider = { id: 'finam', name: 'Finam', capabilities: replay.capabilities,
+      search, history: async () => bars([1]), now: Date.now, close: () => {} };
+    const terminal = new TerminalService(store, new Map<string, DataProvider>([['replay', replay], ['finam', finam]]), () => true, () => {});
+    return { terminal, store, search };
+  }
+  it('adds a confirmed Finam ticker with its actual MIC and prevents unsafe source remapping', async () => {
+    const { terminal, store, search } = setupFinam();
+    const result = await terminal.command({ type: 'addPair', source: 'finam', code: 'EUR/USD', region: '_NPRO', name: 'Euro Dollar' });
+    expect(result.ok).toBe(true); expect(search).toHaveBeenCalledWith('EUR/USD@_NPRO');
+    const pair = store.saved.pairs.find(p => p.source === 'finam')!;
+    expect(pair).toMatchObject({ code: 'EUR/USD', region: '_NPRO' });
+    expect((await terminal.command({ type: 'switchSource', pairId: pair.id, source: 'replay' })).ok).toBe(false);
+    expect((await terminal.command({ type: 'switchSource', pairId: store.saved.pairs[0].id, source: 'finam' })).ok).toBe(false);
+    terminal.close();
+  });
+  it('rejects unconfirmed Finam tickers and preserves the GB-only contract of other providers', async () => {
+    const { terminal, store } = setupFinam();
+    expect((await terminal.command({ type: 'addPair', source: 'finam', code: 'SBER', region: 'MISX', name: 'Sberbank' })).ok).toBe(false);
+    expect((await terminal.command({ type: 'addPair', source: 'replay', code: 'EURUSD', region: '_NPRO', name: 'Euro Dollar' })).ok).toBe(false);
+    expect(store.saved.pairs).toHaveLength(1); terminal.close();
+  });
+});
+
+describe('configuration import lifecycle', () => {
+  it('persists before publishing, pauses monitoring, disables imported signals and keeps event history', async () => {
+    const store = new MemoryStore(), provider = new ManualProvider();
+    const terminal = new TerminalService(store, new Map([[provider.id, provider]]), () => true, () => {});
+    store.all.push({ id: 'old-event', signalId: 's', signalName: 'Test', revision: 1, pairId: 'eurusd', code: 'EURUSD', source: 'replay',
+      at: 1, createdAt: 1, price: '1', explanation: { id: 'r', result: 'true', label: 'Stored event' } });
+    const exported = await terminal.command({ type: 'exportConfiguration', scope: 'all' });
+    if (!exported.ok) throw new Error(exported.error);
+    await terminal.command({ type: 'setMonitoring', enabled: true });
+    await flush();
+    expect(terminal.importConfiguration(exported.data, 'replace').ok).toBe(true);
+    const state = terminal.snapshot();
+    expect(state.settings.monitoring).toBe(false); expect(state.settings.telegramEnabled).toBe(false);
+    expect(state.signals.every(s => !s.enabled)).toBe(true);
+    expect(state.signals[0].id).not.toBe('s'); expect(state.signals[0].pairId).toBe(state.pairs[0].id);
+    expect(store.saved.signals).toEqual(state.signals); expect(store.all.some(event => event.id === 'old-event')).toBe(true);
+    terminal.close();
+  });
+  it('keeps current settings, signals and runtime unchanged when validation or persistence fails', async () => {
+    const store = new MemoryStore(), provider = new ManualProvider();
+    const terminal = new TerminalService(store, new Map([[provider.id, provider]]), () => true, () => {});
+    const before = terminal.snapshot();
+    const exported = await terminal.command({ type: 'exportConfiguration', scope: 'all' });
+    if (!exported.ok) throw new Error(exported.error);
+    expect(terminal.importConfiguration({ version: 99 }, 'replace').ok).toBe(false);
+    const badSource = structuredClone(exported.data) as { pairs: Array<{ source: string }> }; badSource.pairs[0].source = 'unknown-provider';
+    expect(terminal.importConfiguration(badSource, 'replace').ok).toBe(false);
+    const save = vi.spyOn(store, 'save').mockImplementationOnce(() => { throw new Error('disk full'); });
+    expect(terminal.importConfiguration(exported.data, 'replace')).toEqual({ ok: false, error: 'disk full' });
+    const after = terminal.snapshot();
+    expect(after.pairs).toEqual(before.pairs); expect(after.signals).toEqual(before.signals); expect(after.settings).toEqual(before.settings);
+    save.mockRestore(); terminal.close();
+  });
+});

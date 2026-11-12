@@ -49,6 +49,12 @@ export class SqliteStore implements Store, NotificationStore {
       this.db.prepare("INSERT OR IGNORE INTO app_migrations(id) VALUES('simple-signals-v1')").run();
     })();
   }
+  saveImported(data: SavedData, notificationTarget?: string): void {
+    this.db.transaction(() => {
+      this.save(data);
+      if (notificationTarget) this.setNotificationsEnabled(notificationTarget, false);
+    })();
+  }
   addEvent(event: SignalEvent, notificationConnection?: string): boolean {
     return this.db.transaction(() => {
       const added = this.db.prepare('INSERT OR IGNORE INTO signal_events(id,at,value) VALUES(?,?,?)').run(event.id, event.at, JSON.stringify(event)).changes > 0;

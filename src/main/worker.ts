@@ -106,7 +106,7 @@ port.on('message', async event => {
   if (message?.kind === 'credentials') {
     try {
       const source = message.source ?? 'itick'; sourceTokens[source] = message.token;
-      // Storing a key for an unfinished adapter must not restart live monitoring.
+      // Refresh available providers when credentials change.
       if (descriptors.some(provider => provider.credentialId === source && provider.available !== false)) initialize();
       else terminal?.publish();
       port.postMessage({ kind: 'result', id: message.id, result: { ok: true } });
@@ -125,6 +125,12 @@ port.on('message', async event => {
     configureNotifications();
     configureBot();
     port.postMessage({ kind: 'result', id: message.id, result: { ok: true } }); return;
+  }
+  if (message?.kind === 'importConfiguration') {
+    const result = terminal && (message.mode === 'merge' || message.mode === 'replace')
+      ? terminal.importConfiguration(message.configuration, message.mode) : { ok: false, error: 'Недопустимый импорт' };
+    if (result.ok) configureNotifications();
+    port.postMessage({ kind: 'result', id: message.id, result }); return;
   }
   const parsed = commandSchema.safeParse(message?.command);
   if (!parsed.success || isMainCommand(parsed.data) || !terminal) {
