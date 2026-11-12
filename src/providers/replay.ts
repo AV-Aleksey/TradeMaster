@@ -1,10 +1,10 @@
-import { intervalMs, type Candle, type Timeframe } from '../shared/model';
+import { intervalMs, timeframes, type Candle, type Timeframe } from '../shared/model';
 import type { DataProvider, Instrument } from './contracts';
 
 export class ReplayProvider implements DataProvider {
   readonly id = 'replay' as const;
   readonly name = 'Тестовые данные · Replay ×60';
-  readonly capabilities = { nativeTimeframes: ['1m', '5m', '10m', '15m', '30m', '1h', '1d'] as Timeframe[],
+  readonly capabilities = { nativeTimeframes: [...timeframes],
     volume: 'synthetic' as const, stream: true, calendar: 'demo-24h' as const };
   private start = Math.floor(Date.now() / 300000) * 300000;
   private wallStart = Date.now();

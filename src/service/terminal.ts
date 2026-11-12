@@ -1,6 +1,6 @@
 import { createHash, randomUUID } from 'node:crypto';
 import { requiredTimeframes, historyRequirements, SignalMachine } from '../core/rules';
-import { intervalMs, checkSignalLimits, type AppSnapshot, type Command, type CommandResult,
+import { aggregationBase, intervalMs, checkSignalLimits, type AppSnapshot, type Command, type CommandResult,
   type Expression, type SavedData, type Signal, type SignalEvent, type SignalStatus, type Timeframe, type EngineCommand } from '../shared/model';
 import { descriptors, type DataProvider } from '../providers/contracts';
 import { MarketDataService } from './market-data';
@@ -127,7 +127,8 @@ export class TerminalService {
       const needed = new Set<string>();
       needed.add(this.market.key(selected, this.data.settings.timeframe));
       const jobsByKey = new Map([[this.market.key(selected, this.data.settings.timeframe), { pair: selected, tf: this.data.settings.timeframe, minimum: 300 }]]);
-      if (this.data.settings.timeframe === '10m') needed.add(this.market.key(selected, '5m'));
+      const selectedBase = aggregationBase[this.data.settings.timeframe];
+      if (selectedBase) needed.add(this.market.key(selected, selectedBase));
       for (const signal of this.data.signals.filter(s => s.enabled && this.data.settings.monitoring)) {
         const pair = this.data.pairs.find(p => p.id === signal.pairId)!;
         const requirements = historyRequirements(signal);
@@ -135,7 +136,8 @@ export class TerminalService {
           const key = this.market.key(pair, tf);
           const previous = jobsByKey.get(key);
           jobsByKey.set(key, { pair, tf, minimum: Math.max(previous?.minimum ?? 0, requirements[tf] ?? 2) }); needed.add(key);
-          if (tf === '10m') needed.add(this.market.key(pair, '5m'));
+          const base = aggregationBase[tf];
+          if (base) needed.add(this.market.key(pair, base));
         }
       }
       this.market.prune(needed);

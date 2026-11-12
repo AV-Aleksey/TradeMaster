@@ -1,11 +1,13 @@
 import { z } from 'zod';
 
-export const timeframes = ['1m', '5m', '10m', '15m', '30m', '1h', '1d'] as const;
+export const timeframes = ['1m', '2m', '5m', '10m', '15m', '30m', '1h', '1d'] as const;
 export type Timeframe = typeof timeframes[number];
 export const intervalMs: Record<Timeframe, number> = {
-  '1m': 60000, '5m': 300000, '10m': 600000, '15m': 900000,
+  '1m': 60000, '2m': 120000, '5m': 300000, '10m': 600000, '15m': 900000,
   '30m': 1800000, '1h': 3600000, '1d': 86400000,
 };
+/** Locally assembled periods share their source candles across charts and signals. */
+export const aggregationBase: Partial<Record<Timeframe, Timeframe>> = { '2m': '1m', '10m': '5m' };
 export type SourceId = string;
 const sourceSchema = z.string().regex(/^[a-z0-9-]{1,40}$/);
 export interface Candle {

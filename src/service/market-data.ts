@@ -1,5 +1,5 @@
 import { aggregate, normalizeCandles } from '../core/candles';
-import { intervalMs, type Candle, type Pair, type Timeframe } from '../shared/model';
+import { aggregationBase, intervalMs, type Candle, type Pair, type Timeframe } from '../shared/model';
 import type { DataProvider } from '../providers/contracts';
 
 interface Entry { bars: Candle[]; loadedAt: number; restAt: number; requested: number; loading?: Promise<Candle[]>; stop?: () => void; status: string }
@@ -27,8 +27,9 @@ export class MarketDataService {
     const requestStarted = Date.now();
     target.loading = (async () => {
       try {
-        const bars = tf === '10m'
-          ? aggregate(await this.load(pair, '5m', refresh, minimumBars * 2 + 2), '5m', '10m')
+        const base = aggregationBase[tf];
+        const bars = base
+          ? aggregate(await this.load(pair, base, refresh, minimumBars * (intervalMs[tf] / intervalMs[base]) + 2), base, tf)
           : normalizeCandles(await provider.history(pair, tf, minimumBars));
         if (this.entries.get(key) !== target) return [];
         // Keep streaming updates received during a REST request, while preferring
@@ -36,7 +37,7 @@ export class MarketDataService {
         const streamUpdates = target.loadedAt > requestStarted ? target.bars.filter(c => !c.closed && !bars.some(b => b.openTime === c.openTime && b.closed)) : [];
         target.bars = normalizeCandles([...bars, ...streamUpdates]); target.loadedAt = Date.now(); target.restAt = Date.now(); target.requested = minimumBars;
         target.status = provider.id === 'replay' ? 'Тестовые данные · Replay ×60' : 'REST · периодическое обновление';
-        if (!target.stop && provider.subscribe && tf !== '10m') {
+        if (!target.stop && provider.subscribe && !base) {
           target.stop = provider.subscribe(pair, tf, update => {
             if (this.entries.get(key) !== target) return;
             const latest = target.bars.at(-1)?.openTime ?? -Infinity;

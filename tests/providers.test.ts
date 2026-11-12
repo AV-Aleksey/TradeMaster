@@ -84,6 +84,28 @@ describe('iTick adapter', () => {
   });
 });
 describe('common candle data service', () => {
+  it('loads 2m from shared 1m data and keeps incomplete or missing minutes provisional', async () => {
+    const input = bars([1, 3, 2, 4, 5], '1m');
+    input.at(-1)!.closed = false;
+    const history = vi.fn(async () => input), subscribe = vi.fn<NonNullable<DataProvider['subscribe']>>(() => () => {});
+    const provider: DataProvider = { id: 'test', name: 'test', capabilities: { nativeTimeframes: ['1m'], volume: 'reported', stream: true, calendar: 'unverified' },
+      history, subscribe, search: async () => [], now: Date.now, close: () => {} };
+    const service = new MarketDataService(new Map([['test', provider]]), () => {});
+    const pair = { id: 'p', code: 'EURUSD', region: 'GB', name: 'pair', source: 'test' };
+    const result = await service.load(pair, '2m', false, 2);
+    expect(history).toHaveBeenCalledWith(pair, '1m', 6);
+    expect(subscribe).toHaveBeenCalledTimes(1);
+    expect(subscribe.mock.calls[0]?.[1]).toBe('1m');
+    expect(result).toHaveLength(3);
+    expect(result[0]).toMatchObject({ openTime: 0, closeTime: 120000, open: '1', high: '3', low: '1', close: '3', volume: '20', closed: true });
+    expect(result[2].closed).toBe(false);
+    await service.load(pair, '1m', false, 2);
+    expect(history).toHaveBeenCalledTimes(1);
+    input.splice(1, 1);
+    const refreshed = await service.load(pair, '2m', true, 2);
+    expect(refreshed[0].closed).toBe(false);
+    service.close();
+  });
   it('aggregates full 5m bars to 10m and preserves open incomplete intervals', () => {
     const result = aggregate(bars([1, 3, 2]), '5m', '10m');
     expect(result[0]).toMatchObject({ open: '1', high: '3', low: '1', close: '3', volume: '20', closed: true });
