@@ -22,6 +22,8 @@ export const indicatorCatalog: Record<SeriesField, IndicatorInfo> = {
   volumeSma: { label: 'Средний объём', description: 'Средний объём последних N закрытых свечей. В окно включена последняя свеча.', defaultPeriod: 9, periodLabel: 'Свечей в окне', requiresVolume: true },
   stochK: { label: 'Стохастик %K', description: 'Сглаженный %K; длина и сглаживание задаются параметрами стохастика.', defaultPeriod: 10 },
   stochD: { label: 'Стохастик %D', description: 'Сглаживание %K, параметры задаются отдельно.', defaultPeriod: 10 },
+  stochSimpleK: { label: 'Стохастик Simple', description: 'Стохастик с простым сглаживанием SMA быстрой и сигнальной линий. По умолчанию 10 / 5 / 5.', defaultPeriod: 10 },
+  stochSimpleD: { label: 'Сигнальная линия стохастика Simple', description: 'Простая средняя SMA сглаженной быстрой линии стохастика Simple.', defaultPeriod: 10 },
   macd: { label: 'MACD', description: 'Разность быстрой и медленной средних. Периоды и тип средних задаются отдельно.', defaultPeriod: 10 },
   macdSignal: { label: 'MACD signal', description: 'Сигнальная средняя MACD с выбранным периодом и типом.', defaultPeriod: 10 },
   macdHist: { label: 'MACD hist', description: 'MACD минус сигнальная средняя.', defaultPeriod: 10 },

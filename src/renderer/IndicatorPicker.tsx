@@ -3,7 +3,7 @@ import { SettingOutlined } from '@ant-design/icons';
 import type { FieldSelectorProps, ValueEditorProps, ValueSourceSelectorProps } from 'react-querybuilder';
 import { AntDValueSelector } from '@react-querybuilder/antd';
 import { timeframes, type SeriesOperand, type Timeframe } from '../shared/model';
-import { internalCross, signalIndicators, simpleOperand, type SignalIndicator } from '../shared/simple-signals';
+import { internalCross, isStochastic, signalIndicators, simpleOperand, type SignalIndicator } from '../shared/simple-signals';
 import { encodeOperand, tryOperand } from './rule-model';
 
 function IndicatorPicker({ value, onChange, disabled, timeframe }: {
@@ -11,7 +11,7 @@ function IndicatorPicker({ value, onChange, disabled, timeframe }: {
 }): React.JSX.Element {
   const operand = tryOperand(value) ?? simpleOperand();
   const field = signalIndicators.some(i => i.value === operand.field) ? operand.field as SignalIndicator : 'ema';
-  const stoch = field === 'stochK', macd = field === 'macd';
+  const stoch = isStochastic(field), macd = field === 'macd';
   const parameters = stoch ? [operand.params?.kLength ?? 10, operand.params?.kSmooth ?? 5, operand.params?.dSmooth ?? 5]
     : macd ? [operand.params?.fast ?? 12, operand.params?.slow ?? 26, operand.params?.signal ?? 9] : [operand.period];
   const change = (next: SeriesOperand): void => onChange(encodeOperand(next));
@@ -24,7 +24,7 @@ function IndicatorPicker({ value, onChange, disabled, timeframe }: {
         ? { ...operand, params: { ...operand.params, [keys[index]]: next } } : { ...operand, period: next }); }} />
   </label>)}</div>;
   return <Space wrap size={6} className="indicator-picker">
-    <Select aria-label="Индикатор" style={{ width: 135 }} disabled={disabled} value={field} options={[...signalIndicators]}
+    <Select aria-label="Индикатор" style={{ width: 170 }} disabled={disabled} value={field} options={[...signalIndicators]}
       onChange={(next: SignalIndicator) => change(simpleOperand(next, timeframe ?? operand.timeframe, next === 'ema' || next === 'sma' || next === 'wma' ? operand.period : 10))} />
     <Popover trigger="click" title="Параметры индикатора" content={settings}>
       <Button disabled={disabled} icon={<SettingOutlined />} aria-label="Параметры индикатора">{parameters.join(' / ')}{!stoch && !macd ? ' свечей' : ''}</Button>

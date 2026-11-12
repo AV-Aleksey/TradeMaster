@@ -2,8 +2,26 @@ import { describe, it, expect } from 'vitest';
 import { evaluate, SignalMachine } from '../src/core/rules';
 import { checkExpressionLimits, defaultExpression, type Expression, type Operator, type Truth } from '../src/shared/model';
 import { bars, condition, signal } from './fixtures';
+import { crossPartner, simpleOperand } from '../src/shared/simple-signals';
+import { fromEditor, normalizeSimpleEditor, toEditor } from '../src/renderer/rule-model';
 const evaluateAt = (expression: Expression, input = bars([1, 2, 3])) => evaluate(expression, { at: input.at(-1)!.closeTime, series: { '5m': input } });
 describe('conditions, boundaries and composition', () => {
+  it('preserves Stochastic Simple through the editor and detects crosses in both directions', () => {
+    const input = bars([80, 20, 40, 60, 20]);
+    input.forEach(c => { c.low = '0'; c.high = '100'; });
+    const left = { ...simpleOperand('stochSimpleK'), params: { kLength: 1, kSmooth: 1, dSmooth: 2 } };
+    for (const [operator, count] of [['crossUp', 3], ['crossDown', 5]] as const) {
+      const expression = { kind: 'group' as const, id: 'root', combinator: 'and' as const,
+        rules: [condition({ left, right: crossPartner(left), operator })] };
+      const restored = fromEditor(normalizeSimpleEditor(toEditor(expression)));
+      expect(restored).toEqual(expression);
+      checkExpressionLimits(restored);
+      expect(evaluateAt(restored, input.slice(0, count)).result).toBe('true');
+      const forming = input.slice(0, count).map(c => ({ ...c }));
+      forming[count - 1].closed = false;
+      expect(evaluateAt(restored, forming).result).not.toBe('true');
+    }
+  });
   it.each<[Operator, Truth]>([['gt', 'true'], ['gte', 'true'], ['lt', 'false'], ['lte', 'false'], ['eq', 'false']])('%s compares Decimal values', (operator, expected) => {
     expect(evaluateAt(condition({ operator })).result).toBe(expected);
   });

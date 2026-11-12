@@ -35,6 +35,19 @@ describe('independent indicator references', () => {
     const input = bars([1, 2, 3]); input.forEach(c => { c.low = '0'; c.high = '10'; });
     expect(strings(indicator(input, 'stochK', 10, { kLength: 2, kSmooth: 1, dSmooth: 1 }))).toEqual([null, '20', '30']);
   });
+  it('Stochastic Simple applies SMA to both lines with complete warmup and preserves legacy values', () => {
+    const input = bars([10, 30, 20, 80, 40]);
+    input.forEach(c => { c.low = '0'; c.high = '100'; });
+    const params = { kLength: 1, kSmooth: 2, dSmooth: 2 };
+    const k = strings(indicator(input, 'stochSimpleK', 10, params));
+    const d = strings(indicator(input, 'stochSimpleD', 10, params));
+    expect(k).toEqual([null, '20', '25', '50', '60']);
+    expect(d).toEqual([null, null, '22.5', '37.5', '55']);
+    expect(indicatorHistoryBars('stochSimpleK', 10, params)).toBe(2);
+    expect(indicatorHistoryBars('stochSimpleD', 10, params)).toBe(3);
+    expect(strings(indicator(input, 'stochK', 10, params))).toEqual(k);
+    expect(strings(indicator(input, 'stochD', 10, params))).toEqual(d);
+  });
   it('missing volume is unknown and actual zero is a number', () => {
     const input = bars([1, 2, 3]); input[0].volume = null; input[1].volume = '0';
     expect(strings(indicator(input, 'volume', 1))).toEqual([null, '0', '10']);

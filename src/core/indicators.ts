@@ -111,6 +111,11 @@ const average = (calculate: typeof sma): IndicatorDefinition => ({
   calculate: (candles, period) => calculate(candles.map(c => new D(c.close)), period), historyBars: period => period,
 });
 const stochasticHistory = (params: IndicatorParameters, d: boolean): number => (params.kLength ?? 10) + (params.kSmooth ?? 5) - 1 + (d ? (params.dSmooth ?? 5) - 1 : 0);
+// Legacy Stochastic already uses SMA. Keep its saved identifiers and calculation unchanged.
+const stochasticDefinition = (output: 'k' | 'd'): IndicatorDefinition => ({
+  calculate: (candles, _period, p) => stochastic(candles, p.kLength, p.kSmooth, p.dSmooth)[output],
+  historyBars: (_period, p) => stochasticHistory(p, output === 'd'),
+});
 const macdHistory = (params: IndicatorParameters, withSignal: boolean): number => Math.max(params.fast ?? 6, params.slow ?? 8)
   + (withSignal ? (params.signal ?? 4) - 1 : 0) + (params.oscillatorMa === 'ema' || (withSignal && params.signalMa === 'ema') ? 20 : 0);
 const macdDefinition = (output: 'line' | 'signal' | 'hist'): IndicatorDefinition => ({
@@ -124,8 +129,8 @@ export const indicatorRegistry: Record<SeriesField, IndicatorDefinition> = {
   open: raw('open'), high: raw('high'), low: raw('low'), close: raw('close'), volume: raw('volume'),
   sma: average(sma), wma: average(wma), ema: { ...average(ema), historyBars: period => period + 20 },
   volumeSma: { calculate: (candles, period) => sma(candles.map(c => c.volume === null ? null : new D(c.volume)), period), historyBars: period => period },
-  stochK: { calculate: (candles, _period, p) => stochastic(candles, p.kLength, p.kSmooth, p.dSmooth).k, historyBars: (_period, p) => stochasticHistory(p, false) },
-  stochD: { calculate: (candles, _period, p) => stochastic(candles, p.kLength, p.kSmooth, p.dSmooth).d, historyBars: (_period, p) => stochasticHistory(p, true) },
+  stochK: stochasticDefinition('k'), stochD: stochasticDefinition('d'),
+  stochSimpleK: stochasticDefinition('k'), stochSimpleD: stochasticDefinition('d'),
   macd: macdDefinition('line'), macdSignal: macdDefinition('signal'), macdHist: macdDefinition('hist'),
   highest: { calculate: (candles, period) => rollingExtreme(candles, period, 'high'), historyBars: period => period },
   lowest: { calculate: (candles, period) => rollingExtreme(candles, period, 'low'), historyBars: period => period },

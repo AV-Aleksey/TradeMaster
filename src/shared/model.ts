@@ -14,7 +14,7 @@ export interface Candle {
   closed: boolean;
 }
 export const fields = ['open', 'high', 'low', 'close', 'volume', 'ema', 'sma', 'wma',
-  'volumeSma', 'stochK', 'stochD', 'macd', 'macdSignal', 'macdHist',
+  'volumeSma', 'stochK', 'stochD', 'stochSimpleK', 'stochSimpleD', 'macd', 'macdSignal', 'macdHist',
   'highest', 'lowest', 'volumeSum', 'fractalHigh', 'fractalLow', 'legVolumeRatio'] as const;
 export type SeriesField = typeof fields[number];
 export const operators = ['gt', 'gte', 'lt', 'lte', 'eq', 'crossUp', 'crossDown', 'crossUpTouch', 'crossDownTouch', 'rising', 'falling'] as const;

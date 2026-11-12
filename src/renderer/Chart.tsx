@@ -24,11 +24,16 @@ registerIndicator({ name: 'TM_STOCH', shortName: 'Stochastic 10/5/5', precision:
   calc: data => { const bars = toCandle(data), k = indicator(bars, 'stochK', 10), d = indicator(bars, 'stochD', 10);
     return data.map((_, i) => ({ k: k[i]?.toNumber() ?? null, d: d[i]?.toNumber() ?? null })); },
 });
+registerIndicator({ name: 'TM_STOCH_SIMPLE', shortName: 'Stochastic Simple 10/5/5', precision: 2, minValue: 0, maxValue: 100,
+  figures: [{ key: 'k', title: 'K: ', type: 'line' }, { key: 'd', title: 'D: ', type: 'line' }],
+  calc: data => { const bars = toCandle(data), k = indicator(bars, 'stochSimpleK', 10), d = indicator(bars, 'stochSimpleD', 10);
+    return data.map((_, i) => ({ k: k[i]?.toNumber() ?? null, d: d[i]?.toNumber() ?? null })); },
+});
 const convert = (bars: Candle[]): KLineData[] => bars.map(c => ({ timestamp: c.openTime,
   open: Number(c.open), high: Number(c.high), low: Number(c.low), close: Number(c.close),
   ...(c.volume === null ? {} : { volume: Number(c.volume) }) }));
 
-export type ChartPanel = 'both' | 'macd' | 'stoch' | 'none';
+export type ChartPanel = 'both' | 'macd' | 'stoch' | 'stochSimple' | 'simpleBoth' | 'none';
 export function CandleChart({ pair, timeframe, candles, panel }: { pair: Pair; timeframe: Timeframe; candles: Candle[]; panel: ChartPanel }): React.JSX.Element {
   const element = useRef<HTMLDivElement>(null), chart = useRef<Chart | null>(null);
   const data = useRef<KLineData[]>([]), push = useRef<DataLoaderSubscribeBarParams['callback'] | null>(null);
@@ -51,7 +56,8 @@ export function CandleChart({ pair, timeframe, candles, panel }: { pair: Pair; t
     }, subscribeBar: ({ callback }) => { push.current = callback; }, unsubscribeBar: () => { push.current = null; } });
     instance.createIndicator({ name: 'TM_EMA', paneId: 'candle_pane' }, true);
     if (panel === 'stoch' || panel === 'both') instance.createIndicator({ name: 'TM_STOCH', paneId: 'stoch_pane' });
-    if (panel === 'macd' || panel === 'both') instance.createIndicator({ name: 'TM_MACD', paneId: 'macd_pane' });
+    if (panel === 'stochSimple' || panel === 'simpleBoth') instance.createIndicator({ name: 'TM_STOCH_SIMPLE', paneId: 'stoch_pane' });
+    if (panel === 'macd' || panel === 'both' || panel === 'simpleBoth') instance.createIndicator({ name: 'TM_MACD', paneId: 'macd_pane' });
     const observer = new ResizeObserver(() => instance.resize()); observer.observe(element.current);
     return () => { observer.disconnect(); push.current = null; dispose(element.current!); chart.current = null; previous.current = []; };
   }, [pair.id, pair.source, timeframe, panel]);

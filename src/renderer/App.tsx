@@ -124,7 +124,8 @@ export function TerminalApp(): React.JSX.Element {
           onChange={source => run({ type: 'switchSource', pairId: pair.id, source })} /></div>
           <Segmented size="small" value={state.settings.timeframe} options={timeframes.map(value => ({ value, label: value }))} onChange={tf => run({ type: 'setTimeframe', timeframe: tf as Timeframe })} />
           <Select aria-label="Индикаторы графика" size="small" value={panel} style={{ width: 180 }} onChange={setPanel} options={[
-            { value: 'both', label: 'Стохастик + MACD' }, { value: 'macd', label: 'MACD' }, { value: 'stoch', label: 'Стохастик' }, { value: 'none', label: 'Только свечи' }]} /></div>
+            { value: 'both', label: 'Стохастик + MACD' }, { value: 'simpleBoth', label: 'Стохастик Simple + MACD' }, { value: 'macd', label: 'MACD' },
+            { value: 'stoch', label: 'Стохастик' }, { value: 'stochSimple', label: 'Стохастик Simple' }, { value: 'none', label: 'Только свечи' }]} /></div>
         {pair.source === 'replay' && <div className="demo-banner"><ExperimentOutlined /> Тестовые данные · время ускорено ×60 · не рыночные котировки</div>}
         {state.feedError && <Alert type="error" showIcon title={state.feedError} action={<Button size="small" onClick={() => setSettingsOpen(true)}>Подключения</Button>} />}
         <div className="chart-area"><CandleChart pair={pair} timeframe={state.settings.timeframe} candles={state.candles} panel={panel} />

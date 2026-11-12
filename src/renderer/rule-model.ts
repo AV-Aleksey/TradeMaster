@@ -1,7 +1,7 @@
 import type { Expression, Group, SeriesOperand, Operator, EvaluationWindow } from '../shared/model';
 import { fields } from '../shared/model';
 import { indicatorCatalog } from '../shared/indicator-catalog';
-import { crossPartner, internalCross, simpleOperand } from '../shared/simple-signals';
+import { crossPartner, internalCross, isStochastic, simpleOperand } from '../shared/simple-signals';
 
 export interface EditorRule { id?: string; field: string; operator: string; value: string; valueSource?: 'value' | 'field'; window?: EvaluationWindow }
 export interface EditorGroup { id?: string; combinator: string; rules: Array<EditorRule | EditorGroup>; window?: EvaluationWindow }
@@ -45,9 +45,9 @@ export function normalizeSimpleEditor(group: EditorGroup): EditorGroup {
     if (node.operator === 'rising' || node.operator === 'falling') return { ...clean, valueSource: 'value',
       value: tryOperand(node.value) || !Number.isInteger(Number(node.value)) || Number(node.value) < 1 ? '1' : node.value };
     if (node.valueSource !== 'field') return { ...clean, value: tryOperand(node.value) ? '0' : String(node.value ?? '0') };
-    let right = tryOperand(node.value) ?? (left.field === 'stochK' || left.field === 'macd' ? simpleOperand('ema', left.timeframe, 10) : crossPartner(left));
-    if (right.field === 'stochD' || right.field === 'macdSignal' || right.field === 'macdHist') {
-      if (left.field === 'stochK' || left.field === 'macd') return { ...clean, valueSource: 'value', value: '0' };
+    let right = tryOperand(node.value) ?? (isStochastic(left.field) || left.field === 'macd' ? simpleOperand('ema', left.timeframe, 10) : crossPartner(left));
+    if (right.field === 'stochD' || right.field === 'stochSimpleD' || right.field === 'macdSignal' || right.field === 'macdHist') {
+      if (isStochastic(left.field) || left.field === 'macd') return { ...clean, valueSource: 'value', value: '0' };
       right = crossPartner(left);
     }
     if (isCrossing(node.operator)) right = { ...right, timeframe: left.timeframe };

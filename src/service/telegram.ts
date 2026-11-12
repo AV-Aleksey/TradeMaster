@@ -36,10 +36,11 @@ export function telegramText(event: SignalEvent): string {
   const walk = (item: Explanation, depth = 0): void => {
     if (lines.length >= 14 || depth > 4) return;
     const labels: Record<string, string> = { ema: 'EMA', sma: 'SMA', wma: 'WMA', stochK: 'Стохастик', stochD: 'Сигнальная линия стохастика',
+      stochSimpleK: 'Стохастик Simple', stochSimpleD: 'Сигнальная линия стохастика Simple',
       macd: 'MACD', macdSignal: 'Сигнальная линия MACD', macdHist: 'Гистограмма MACD',
       crossUp: 'пересечение ↑', crossDown: 'пересечение ↓', crossUpTouch: 'пересечение ↑ с касанием', crossDownTouch: 'пересечение ↓ с касанием',
       gt: '>', gte: '≥', lt: '<', lte: '≤', eq: '=', rising: 'рост', falling: 'снижение' };
-    const label = item.label.replace(/\b(?:ema|sma|wma|stochK|stochD|macd|macdSignal|macdHist|crossUp|crossDown|crossUpTouch|crossDownTouch|gt|gte|lt|lte|eq|rising|falling)\b/g, key => labels[key]);
+    const label = item.label.replace(/\b(?:ema|sma|wma|stochK|stochD|stochSimpleK|stochSimpleD|macd|macdSignal|macdHist|crossUp|crossDown|crossUpTouch|crossDownTouch|gt|gte|lt|lte|eq|rising|falling)\b/g, key => labels[key]);
     const decimals = indicatorDecimalPlaces(item.label);
     const values = item.left !== undefined ? ` — <code>${telegramEscape(displayNumber(item.left, decimals), 80)}</code>${item.right !== undefined ? ` / <code>${telegramEscape(displayNumber(item.right, decimals), 80)}</code>` : ''}` : '';
     lines.push(`${'  '.repeat(depth)}${item.result === 'true' ? '✅' : item.result === 'false' ? '❌' : '⚪'} ${telegramEscape(label, 160)}${values}`);
